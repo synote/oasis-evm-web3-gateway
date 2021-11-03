@@ -184,7 +184,9 @@ func (p *psqlBackend) Index(
 		Round: round,
 		Hash:  blockHash.String(),
 	}
-	p.storage.Store(blockRef)
+	if err := p.storage.Store(blockRef); err != nil {
+		return err
+	}
 
 	for idx, utx := range txs {
 		if len(utx.AuthProofs) != 1 || utx.AuthProofs[0].Module != "evm.ethereum.v0" {
@@ -200,8 +202,22 @@ func (p *psqlBackend) Index(
 			)
 			continue
 		}
-		p.storage.Store(txRef)
-		p.storage.Store(ethTx)
+		if err = p.storage.Store(txRef); err != nil {
+			p.logger.Error("failed to store transaction reference",
+				"err", err,
+				"round", round,
+				"index", idx,
+			)
+			continue
+		}
+		if err = p.storage.Store(ethTx); err != nil {
+			p.logger.Error("failed to store eth transaction",
+				"err", err,
+				"round", round,
+				"index", idx,
+			)
+			continue
+		}
 	}
 
 	p.logger.Info("indexed block", "round", round)
@@ -245,7 +261,7 @@ func (p *psqlBackend) QueryBlockHash(round uint64) (ethcommon.Hash, error) {
 	}
 
 	if err != nil {
-		p.logger.Error("indexer error", "err", err)
+		p.logger.Error("indexer error: query block hash", "err", err)
 		return ethcommon.Hash{}, err
 	}
 	return ethcommon.HexToHash(blockHash), nil
@@ -258,7 +274,9 @@ func (p *psqlBackend) storeIndexedRound(round uint64) {
 		Round: round,
 	}
 
-	p.storage.Update(r)
+	if err := p.storage.Update(r); err != nil {
+		p.logger.Error("indexer error: store indexed round", "err", err)
+	}
 	p.indexedRoundMutex.Unlock()
 }
 

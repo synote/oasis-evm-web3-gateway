@@ -12,19 +12,19 @@ import (
 	"github.com/starfishlabs/oasis-evm-web3-gateway/model"
 )
 
-type PostDb struct {
-	Db *pg.DB
+type PostDB struct {
+	DB *pg.DB
 }
 
-// InitDb creates postgresql db instance
-func InitDb(cfg *conf.PostDbConfig) (*PostDb, error) {
+// InitDB creates postgresql db instance.
+func InitDB(cfg *conf.PostDBConfig) (*PostDB, error) {
 	if cfg == nil {
 		return nil, errors.New("nil configuration")
 	}
 	// Connect db
 	db := pg.Connect(&pg.Options{
 		Addr:        fmt.Sprintf("%v:%v", cfg.Host, cfg.Port),
-		Database:    cfg.Db,
+		Database:    cfg.DB,
 		User:        cfg.User,
 		Password:    cfg.Password,
 		DialTimeout: time.Duration(cfg.Timeout) * time.Second,
@@ -38,15 +38,15 @@ func InitDb(cfg *conf.PostDbConfig) (*PostDb, error) {
 		return nil, err
 	}
 
-	return &PostDb{
-		Db: db,
+	return &PostDB{
+		DB: db,
 	}, nil
 }
 
 // GetTransactionRef returns block hash, round and index of the transaction.
-func (db *PostDb) GetTransactionRef(txHash string) (*model.TransactionRef, error) {
+func (db *PostDB) GetTransactionRef(txHash string) (*model.TransactionRef, error) {
 	tx := new(model.TransactionRef)
-	err := db.Db.Model(tx).
+	err := db.DB.Model(tx).
 		Where("eth_tx_hash=?", txHash).
 		Select()
 	if err != nil {
@@ -57,9 +57,9 @@ func (db *PostDb) GetTransactionRef(txHash string) (*model.TransactionRef, error
 }
 
 // GetTransaction queries ethereum transaction by hash.
-func (db *PostDb) GetTransaction(hash string) (*model.Transaction, error) {
+func (db *PostDB) GetTransaction(hash string) (*model.Transaction, error) {
 	tx := new(model.Transaction)
-	err := db.Db.Model(tx).
+	err := db.DB.Model(tx).
 		Where("hash=?", hash).
 		Select()
 	if err != nil {
@@ -70,15 +70,15 @@ func (db *PostDb) GetTransaction(hash string) (*model.Transaction, error) {
 }
 
 // Store stores data.
-func (db *PostDb) Store(value interface{}) error {
-	_, err := db.Db.Model(value).Insert()
+func (db *PostDB) Store(value interface{}) error {
+	_, err := db.DB.Model(value).Insert()
 	return err
 }
 
 // Update updates record.
-func (db *PostDb) Update(value interface{}) error {
+func (db *PostDB) Update(value interface{}) error {
 	var err error
-	query := db.Db.Model(value)
+	query := db.DB.Model(value)
 	exists, _ := query.WherePK().Exists()
 	if !exists {
 		_, err = query.Insert()
@@ -89,15 +89,15 @@ func (db *PostDb) Update(value interface{}) error {
 }
 
 // Delete deletes all records with round less than the given round.
-func (db *PostDb) Delete(table interface{}, round uint64) error {
-	_, err := db.Db.Model(table).Where("round<?", round).Delete()
+func (db *PostDB) Delete(table interface{}, round uint64) error {
+	_, err := db.DB.Model(table).Where("round<?", round).Delete()
 	return err
 }
 
 // GetBlockRound queries block round by block hash.
-func (db *PostDb) GetBlockRound(hash string) (uint64, error) {
+func (db *PostDB) GetBlockRound(hash string) (uint64, error) {
 	block := new(model.BlockRef)
-	err := db.Db.Model(block).
+	err := db.DB.Model(block).
 		Where("hash=?", hash).
 		Select()
 	if err != nil {
@@ -108,9 +108,9 @@ func (db *PostDb) GetBlockRound(hash string) (uint64, error) {
 }
 
 // GetBlockHash queries block hash by block round.
-func (db *PostDb) GetBlockHash(round uint64) (string, error) {
+func (db *PostDB) GetBlockHash(round uint64) (string, error) {
 	blk := new(model.BlockRef)
-	err := db.Db.Model(blk).
+	err := db.DB.Model(blk).
 		Where("round=?", round).
 		Select()
 	if err != nil {
@@ -121,9 +121,9 @@ func (db *PostDb) GetBlockHash(round uint64) (string, error) {
 }
 
 // GetLatestBlockHash queries for the block hash of the latest round.
-func (db *PostDb) GetLatestBlockHash() (string, error) {
+func (db *PostDB) GetLatestBlockHash() (string, error) {
 	blk := new(model.BlockRef)
-	err := db.Db.Model(blk).Order("round DESC").Limit(1).Select()
+	err := db.DB.Model(blk).Order("round DESC").Limit(1).Select()
 	if err != nil {
 		return "", err
 	}
@@ -132,9 +132,9 @@ func (db *PostDb) GetLatestBlockHash() (string, error) {
 }
 
 // GetContinuesIndexedRound queries latest continues indexed block round.
-func (db *PostDb) GetContinuesIndexedRound() (uint64, error) {
+func (db *PostDB) GetContinuesIndexedRound() (uint64, error) {
 	indexedRound := new(model.ContinuesIndexedRound)
-	err := db.Db.Model(indexedRound).
+	err := db.DB.Model(indexedRound).
 		Where("tip=?", model.Continues).
 		Select()
 	if err != nil {

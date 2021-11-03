@@ -154,7 +154,7 @@ func TestServerRPCPrefix(t *testing.T) {
 		name := fmt.Sprintf("http=%s ws=%s", test.httpPrefix, test.wsPrefix)
 		t.Run(name, func(t *testing.T) {
 			cfg := &conf.GatewayConfig{
-				Http: &conf.GatewayHttpConfig{
+				HTTP: &conf.GatewayHTTPConfig{
 					Host:       "127.0.0.1",
 					PathPrefix: test.httpPrefix,
 				},

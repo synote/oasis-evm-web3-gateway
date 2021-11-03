@@ -18,7 +18,7 @@ func TestInitPostDb(t *testing.T) {
 	if err != nil {
 		log.Fatal("initialize config error:", err)
 	}
-	db, err := InitDb(cfg)
+	db, err := InitDB(cfg.PostDB)
 	if err != nil {
 		log.Fatal("initialize postdb error:", err)
 	}
@@ -34,9 +34,15 @@ func TestInitPostDb(t *testing.T) {
 		Round: 1,
 		Hash:  "hello world",
 	}
-	db.Store(block1)
-	db.Store(block2)
-	db.Store(block3)
+	if err = db.Store(block1); err != nil {
+		log.Fatal("postdb store error:", err)
+	}
+	if err = db.Store(block2); err != nil {
+		log.Fatal("postdb store error:", err)
+	}
+	if err = db.Store(block3); err != nil {
+		log.Fatal("postdb store error:", err)
+	}
 	round, err := db.GetBlockRound(block1.Hash)
 	require.NoError(err)
 	require.EqualValues(1, round, "GetBlockRound should return expected round")
@@ -61,8 +67,12 @@ func TestInitPostDb(t *testing.T) {
 		Round:     2,
 		BlockHash: "cde456",
 	}
-	db.Store(tx1)
-	db.Store(tx2)
+	if err = db.Store(tx1); err != nil {
+		log.Fatal("postdb store tx error:", err)
+	}
+	if err = db.Store(tx2); err != nil {
+		log.Fatal("postdb store tx error:", err)
+	}
 	txRef, err := db.GetTransactionRef(tx1.EthTxHash)
 	require.NoError(err)
 	require.EqualValues(1, txRef.Index)
@@ -122,9 +132,12 @@ func TestInitPostDb(t *testing.T) {
 		R:          big.NewInt(3).String(),
 		S:          big.NewInt(3).String(),
 	}
-	db.Store(legacyTx)
-	db.Store(accessListTx)
-	db.Store(dynamicFeeTx)
+	err = db.Store(legacyTx)
+	require.Nil(t, err, "unable to store legacy transaction")
+	err = db.Store(accessListTx)
+	require.Nil(t, err, "unable to store access list transaction")
+	err = db.Store(dynamicFeeTx)
+	require.Nil(t, err, "unable to store dynamic fee transaction")
 
 	tx, err := db.GetTransaction("hello")
 	require.NoError(err)
@@ -136,7 +149,7 @@ func TestUpdate(t *testing.T) {
 
 	cfg, err := conf.InitConfig("../../conf/server.yml")
 	require.NoError(err, "initialize config")
-	db, err := InitDb(cfg)
+	db, err := InitDB(cfg.PostDB)
 	require.NoError(err, "initialize postdb")
 
 	ir1 := &model.ContinuesIndexedRound{
@@ -173,7 +186,7 @@ func TestDelete(t *testing.T) {
 
 	cfg, err := conf.InitConfig("../../conf/server.yml")
 	require.NoError(err, "initialize config")
-	db, err := InitDb(cfg)
+	db, err := InitDB(cfg.PostDB)
 	require.NoError(err, "initialize postdb")
 
 	require.NoError(db.Delete(new(model.BlockRef), 10), "delete")
@@ -184,7 +197,7 @@ func TestGetBlockHash(t *testing.T) {
 
 	cfg, err := conf.InitConfig("../../conf/server.yml")
 	require.NoError(err, "initialize config")
-	_, err = InitDb(cfg)
+	_, err = InitDB(cfg.PostDB)
 	require.NoError(err, "initialize postdb")
 
 	// TODO: this fails as expected as the db doesn't contain the block.
@@ -199,7 +212,7 @@ func TestGetTransactionRef(t *testing.T) {
 
 	cfg, err := conf.InitConfig("../../conf/server.yml")
 	require.NoError(err, "initialize config")
-	_, err = InitDb(cfg)
+	_, err = InitDB(cfg.PostDB)
 	require.NoError(err, "initialize postdb")
 
 	// TODO: this fails as expected as the db doesn't contain the transaction.

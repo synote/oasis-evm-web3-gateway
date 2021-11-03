@@ -75,7 +75,6 @@ func ConstructRPCTransaction(
 	blockNumber,
 	index uint64,
 ) (*RPCTransaction, error) {
-
 	signer := ethtypes.LatestSignerForChainID(ethTx.ChainId())
 	from, _ := ethtypes.Sender(signer, ethTx)
 	v, r, s := ethTx.RawSignatureValues()
@@ -125,7 +124,6 @@ func NewRPCTransaction(
 	blockNumber uint64,
 	index hexutil.Uint64,
 ) (*RPCTransaction, error) {
-
 	to := common.HexToAddress(dbTx.ToAddr)
 
 	gasPrice, _ := new(big.Int).SetString(dbTx.GasPrice, 10)

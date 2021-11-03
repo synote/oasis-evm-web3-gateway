@@ -134,7 +134,7 @@ func CallWithError(method string, params interface{}) (*Response, error) {
 	return rpcRes, nil
 }
 
-// turns a 0x prefixed hex string to a big.Int
+// turns a 0x prefixed hex string to a big.Int.
 func HexToBigInt(t *testing.T, in string) *big.Int {
 	s := in[2:]
 	b, err := hex.DecodeString(s)
@@ -142,7 +142,7 @@ func HexToBigInt(t *testing.T, in string) *big.Int {
 	return big.NewInt(0).SetBytes(b)
 }
 
-// sendTestTransaction sends a dummy transaction
+// sendTestTransaction sends a dummy transaction.
 func SendTestTransaction(t *testing.T, addr []byte) hexutil.Bytes {
 	param := make([]map[string]string, 1)
 	param[0] = make(map[string]string)
@@ -162,7 +162,7 @@ func SendTestTransaction(t *testing.T, addr []byte) hexutil.Bytes {
 	return hash
 }
 
-// deployTestContract deploys a contract that emits an event in the constructor
+// deployTestContract deploys a contract that emits an event in the constructor.
 func DeployTestContract(t *testing.T, addr []byte) (hexutil.Bytes, map[string]interface{}) {
 	param := make([]map[string]string, 1)
 	param[0] = make(map[string]string)

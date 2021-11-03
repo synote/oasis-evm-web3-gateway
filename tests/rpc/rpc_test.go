@@ -20,18 +20,18 @@ import (
 )
 
 const (
-	// dave address generated from github.com/oasisprotocol/oasis-sdk/client-sdk/go/testing
+	// daveEVMAddr is Dave's address generated from github.com/oasisprotocol/oasis-sdk/client-sdk/go/testing.
 	daveEVMAddr = "0xdce075e1c39b1ae0b75d554558b6451a226ffe00"
-	// Zero hex bytes used in jsonrpc
+	// zeroString is zero in hex bytes used in jsonrpc.
 	zeroString = "0x0"
+	// testHost is localhost for tests.
+	testHost = "http://localhost:8545"
 )
 
-// The dave private key derive from the seed "oasis-runtime-sdk/test-keys: dave"
+// The dave private key derive from the seed "oasis-runtime-sdk/test-keys: dave".
 var daveKey, _ = crypto.HexToECDSA("c0e43d8755f201b715fd5a9ce0034c568442543ae0a0ee1aec2985ffe40edb99")
 
 func TestMain(m *testing.M) {
-	HOST = "http://localhost:8545"
-
 	// Start all tests
 	code := m.Run()
 	os.Exit(code)
@@ -51,7 +51,7 @@ func call(t *testing.T, method string, params interface{}) *Response {
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
-	res, err := http.Post(HOST, "application/json", bytes.NewBuffer(req))
+	res, err := http.NewRequestWithContext(context.Background(), http.MethodPost, testHost, bytes.NewBuffer(req))
 	require.NoError(t, err)
 
 	decoder := json.NewDecoder(res.Body)
@@ -95,8 +95,7 @@ func TestEth_GetTransactionCount(t *testing.T) {
 }
 
 func localClient() *ethclient.Client {
-	HOST = "http://localhost:8545"
-	c, _ := ethclient.Dial(HOST)
+	c, _ := ethclient.Dial(testHost)
 	return c
 }
 
@@ -119,7 +118,7 @@ func TestEth_GasPrice(t *testing.T) {
 	t.Logf("gas price: %v", price)
 }
 
-// TestEth_SendRawTransaction post eth raw transaction with ethclient from go-ethereum
+// TestEth_SendRawTransaction post eth raw transaction with ethclient from go-ethereum.
 func TestEth_SendRawTransaction(t *testing.T) {
 	ec := localClient()
 
@@ -138,7 +137,8 @@ func TestEth_SendRawTransaction(t *testing.T) {
 	signedTx, err := tx.WithSignature(signer, signature)
 	require.Nil(t, err, "pack tx")
 
-	ec.SendTransaction(context.Background(), signedTx)
+	err = ec.SendTransaction(context.Background(), signedTx)
+	require.Nil(t, err, "send transaction failed")
 }
 
 func TestEth_GetBlockByNumberAndGetBlockByHash(t *testing.T) {
@@ -152,12 +152,12 @@ func TestEth_GetBlockByNumberAndGetBlockByHash(t *testing.T) {
 
 	param := []interface{}{number.String(), false}
 	rpcRes := call(t, "eth_getBlockHash", param)
-	var blk_hash interface{}
-	err = json.Unmarshal(rpcRes.Result, &blk_hash)
+	var blkHash interface{}
+	err = json.Unmarshal(rpcRes.Result, &blkHash)
 	require.NoError(t, err)
 	_ = rpcRes
 
-	blkhash := blk_hash.(string)
+	blkhash := blkHash.(string)
 	hash := common.HexToHash(blkhash)
 	param = []interface{}{hash, false}
 	rpcRes = call(t, "eth_getBlockByHash", param)
@@ -177,8 +177,7 @@ func TestEth_BlockNumber(t *testing.T) {
 }
 
 func TestEth_GetTransactionByHash(t *testing.T) {
-	HOST = "http://localhost:8545"
-	ec, _ := ethclient.Dial(HOST)
+	ec, _ := ethclient.Dial(testHost)
 
 	chainID := big.NewInt(42261)
 	data := common.FromHex("0x7f7465737432000000000000000000000000000000000000000000000000000000600057")
@@ -202,7 +201,8 @@ func TestEth_GetTransactionByHash(t *testing.T) {
 	signedTx, err := tx.WithSignature(signer, signature)
 	require.Nil(t, err, "pack tx")
 
-	ec.SendTransaction(context.Background(), signedTx)
+	err = ec.SendTransaction(context.Background(), signedTx)
+	require.Nil(t, err, "send transaction failed")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()

@@ -22,14 +22,14 @@ type httpConfig struct {
 	prefix             string // path prefix on which to mount http handler
 }
 
-// wsConfig is the JSON-RPC/Websocket configuration
+// wsConfig is the JSON-RPC/Websocket configuration.
 type wsConfig struct {
 	Origins []string
 	Modules []string
 	prefix  string // path prefix on which to mount ws handler
 }
 
-// httpServer handle http connection and rpc requests
+// httpServer handle http connection and rpc requests.
 type httpServer struct {
 	log      log.Logger
 	timeouts rpc.HTTPTimeouts
@@ -86,7 +86,9 @@ func (h *httpServer) start() error {
 		return err
 	}
 	// h.listener = listener
-	go h.server.Serve(listener)
+	if err := h.server.Serve(listener); err != nil {
+		return err
+	}
 
 	h.log.Info("HTTP server started",
 		"endpoint", listener.Addr(),
@@ -115,7 +117,9 @@ func validatePrefix(what, path string) error {
 
 // stop shuts down the HTTP server.
 func (h *httpServer) stop() {
-	h.server.Shutdown(context.Background())
+	if err := h.server.Shutdown(context.Background()); err != nil {
+		h.log.Error("Error while shutting down HTTP server: %w", err)
+	}
 	h.log.Info("HTTP server stopped", "endpoint", h.endpoint)
 }
 
@@ -185,7 +189,7 @@ func RegisterApis(apis []rpc.API, modules []string, srv *rpc.Server, exposeAll b
 	return nil
 }
 
-// CheckTimeouts ensures that timeout values are meaningful
+// CheckTimeouts ensures that timeout values are meaningful.
 func CheckTimeouts(timeouts *rpc.HTTPTimeouts) {
 	if timeouts.ReadTimeout < time.Second {
 		log.Warn("Sanitizing invalid HTTP read timeout", "provided", timeouts.ReadTimeout, "updated", rpc.DefaultHTTPTimeouts.ReadTimeout)

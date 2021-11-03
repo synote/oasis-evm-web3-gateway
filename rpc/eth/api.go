@@ -129,7 +129,7 @@ func (api *PublicAPI) getRPCBlockData(oasisBlock *block.Block) (uint64, ethtypes
 			continue
 		}
 
-		gasUsed += uint64(ethTx.Gas())
+		gasUsed += ethTx.Gas()
 		ethTxs = append(ethTxs, ethTx)
 
 		var oasisLogs []*Log
@@ -246,8 +246,8 @@ func (api *PublicAPI) GetBalance(address common.Address, blockNum ethrpc.BlockNu
 	return (*hexutil.Big)(res.ToBigInt()), nil
 }
 
-// ChainId return the EIP-155  chain id for the current network
-func (api *PublicAPI) ChainId() (*hexutil.Big, error) {
+// ChainID return the EIP-155  chain id for the current network.
+func (api *PublicAPI) ChainID() (*hexutil.Big, error) {
 	return (*hexutil.Big)(big.NewInt(int64(api.chainID))), nil
 }
 
@@ -322,7 +322,7 @@ func (api *PublicAPI) GetCode(address common.Address, blockNum ethrpc.BlockNumbe
 }
 
 // Call executes the given transaction on the state for the given block number.
-// this function doesn't make any changes in the evm state of blockchain
+// This function doesn't make any changes in the evm state of blockchain.
 func (api *PublicAPI) Call(args utils.TransactionArgs, blockNum ethrpc.BlockNumber, _ *utils.StateOverride) (hexutil.Bytes, error) {
 	var (
 		amount   = []byte{0}

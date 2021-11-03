@@ -14,15 +14,15 @@ type Config struct {
 	EnablePruning bool   `yaml:"enable_pruing"`
 	PruningStep   uint64 `yaml:"pruning_step"`
 
-	PostDb  *PostDbConfig  `yaml:"postdb,omitempty"`
+	PostDB  *PostDBConfig  `yaml:"postdb,omitempty"`
 	Gateway *GatewayConfig `yaml:"gateway,omitempty"`
 }
 
-// PostDbConfig PostDb postgresql configuration.
-type PostDbConfig struct {
+// PostDBConfig PostDB postgresql configuration.
+type PostDBConfig struct {
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
-	Db       string `yaml:"db"`
+	DB       string `yaml:"db"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 	Timeout  int    `yaml:"timeout"`
@@ -30,17 +30,17 @@ type PostDbConfig struct {
 
 // GatewayConfig is the gateway server configuration.
 type GatewayConfig struct {
-	// Http is the gateway http endpoint config.
-	Http *GatewayHttpConfig `yaml:"http,omitempty"`
+	// HTTP is the gateway http endpoint config.
+	HTTP *GatewayHTTPConfig `yaml:"http,omitempty"`
 
 	// WS is the gateway websocket endpoint config.
 	WS *GatewayWSConfig `yaml:"ws,omitempty"`
 
-	// ChainId defines the Ethereum netwrok chain id.
-	ChainId uint32 `yaml:"chain_id,omitempty"`
+	// ChainID defines the Ethereum network chain id.
+	ChainID uint32 `yaml:"chain_id,omitempty"`
 }
 
-type GatewayHttpConfig struct {
+type GatewayHTTPConfig struct {
 	// Host is the host interface on which to start the HTTP RPC server. Defaults to localhost.
 	Host string `yaml:"host"`
 
@@ -58,10 +58,10 @@ type GatewayHttpConfig struct {
 
 	// Timeouts allows for customization of the timeout values used by the HTTP RPC
 	// interface.
-	Timeouts *HttpTimeouts `yaml:"timeouts,omitempty"`
+	Timeouts *HTTPTimeouts `yaml:"timeouts,omitempty"`
 }
 
-type HttpTimeouts struct {
+type HTTPTimeouts struct {
 	Read  *time.Duration `yaml:"read,omitempty"`
 	Write *time.Duration `yaml:"write,omitempty"`
 	Idle  *time.Duration `yaml:"idle,omitempty"`
@@ -82,10 +82,10 @@ type GatewayWSConfig struct {
 
 	// Timeouts allows for customization of the timeout values used by the HTTP RPC
 	// interface.
-	Timeouts *HttpTimeouts `yaml:"timeouts,omitempty"`
+	Timeouts *HTTPTimeouts `yaml:"timeouts,omitempty"`
 }
 
-// InitConfig initializes server configuration
+// InitConfig initializes server configuration.
 func InitConfig(file string) (*Config, error) {
 	// read server.yml
 	bs, err := ioutil.ReadFile(file)

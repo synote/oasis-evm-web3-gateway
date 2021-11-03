@@ -25,7 +25,7 @@ import (
 var (
 	// Path to the configuration file.
 	configFile string
-	// Oasis-web3-gateway root command
+	// Oasis-web3-gateway root command.
 	rootCmd = &cobra.Command{
 		Use:   "oasis-evm-web3-gateway",
 		Short: "oasis-evm-web3-gateway",
@@ -41,7 +41,9 @@ func init() {
 }
 
 func main() {
-	rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Command failed: %v\n", err)
+	}
 }
 
 func runRoot(cmd *cobra.Command, args []string) {
@@ -60,7 +62,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 
 	// Decode hex runtime ID into something we can use.
 	var runtimeID common.Namespace
-	if err := runtimeID.UnmarshalHex(cfg.RuntimeID); err != nil {
+	if err = runtimeID.UnmarshalHex(cfg.RuntimeID); err != nil {
 		logger.Error("malformed runtime ID", "err", err)
 		os.Exit(1)
 	}
@@ -78,7 +80,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 	rc := client.New(conn, runtimeID)
 
 	// Initialize db
-	db, err := psql.InitDb(cfg.PostDb)
+	db, err := psql.InitDB(cfg.PostDB)
 	if err != nil {
 		logger.Error("failed to initialize db", "err", err)
 		os.Exit(1)
@@ -107,7 +109,10 @@ func runRoot(cmd *cobra.Command, args []string) {
 		DB:     db,
 	}
 
-	svr.Start()
+	if err = svr.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Unable to start Web3 server: %v\n", err)
+		os.Exit(1)
+	}
 
 	go func() {
 		sigc := make(chan os.Signal, 1)

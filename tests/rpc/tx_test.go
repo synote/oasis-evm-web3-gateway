@@ -37,7 +37,7 @@ func waitTransaction(ctx context.Context, ec *ethclient.Client, txhash common.Ha
 			return receipt, nil
 		}
 		if err != nil {
-			// fmt.Printf("Receipt retrieval failed: %s\n", err)
+			return nil, err
 		}
 		// Wait for the next round.
 		select {
@@ -49,8 +49,7 @@ func waitTransaction(ctx context.Context, ec *ethclient.Client, txhash common.Ha
 }
 
 func TestContractCreation(t *testing.T) {
-	HOST = "http://localhost:8545"
-	ec, _ := ethclient.Dial(HOST)
+	ec, _ := ethclient.Dial(testHost)
 
 	code := common.FromHex(strings.TrimSpace(evmSolTestCompiledHex))
 
@@ -61,7 +60,13 @@ func TestContractCreation(t *testing.T) {
 	require.Nil(t, err, "get nonce failed")
 
 	// Create transaction
-	tx := types.NewContractCreation(nonce, big.NewInt(0), 1000000, big.NewInt(2), code)
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    nonce,
+		Value:    big.NewInt(0),
+		Gas:      1000000,
+		GasPrice: big.NewInt(2),
+		Data:     code,
+	})
 	signer := types.LatestSignerForChainID(chainID)
 	signature, err := crypto.Sign(signer.Hash(tx).Bytes(), daveKey)
 	require.Nil(t, err, "sign tx")
@@ -69,7 +74,8 @@ func TestContractCreation(t *testing.T) {
 	signedTx, err := tx.WithSignature(signer, signature)
 	require.Nil(t, err, "pack tx")
 
-	ec.SendTransaction(context.Background(), signedTx)
+	err = ec.SendTransaction(context.Background(), signedTx)
+	require.Nil(t, err, "send transaction failed")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -85,8 +91,7 @@ func TestContractCreation(t *testing.T) {
 }
 
 func TestContractFailCreation(t *testing.T) {
-	HOST = "http://localhost:8545"
-	ec, _ := ethclient.Dial(HOST)
+	ec, _ := ethclient.Dial(testHost)
 
 	code := common.FromHex(strings.TrimSpace(evmSolTestCompiledHex))
 
@@ -96,8 +101,14 @@ func TestContractFailCreation(t *testing.T) {
 	nonce, err := ec.NonceAt(context.Background(), common.HexToAddress(daveEVMAddr), nil)
 	require.Nil(t, err, "get nonce failed")
 
-	// Create transaction with transfer which is not allowed in solidity non payale
-	tx := types.NewContractCreation(nonce, big.NewInt(1), 1000000, big.NewInt(2), code)
+	// Create transaction with transfer which is not allowed in solidity non payable
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    nonce,
+		Value:    big.NewInt(1),
+		Gas:      1000000,
+		GasPrice: big.NewInt(2),
+		Data:     code,
+	})
 	signer := types.LatestSignerForChainID(chainID)
 	signature, err := crypto.Sign(signer.Hash(tx).Bytes(), daveKey)
 	require.Nil(t, err, "sign tx")
@@ -105,7 +116,8 @@ func TestContractFailCreation(t *testing.T) {
 	signedTx, err := tx.WithSignature(signer, signature)
 	require.Nil(t, err, "pack tx")
 
-	ec.SendTransaction(context.Background(), signedTx)
+	err = ec.SendTransaction(context.Background(), signedTx)
+	require.Nil(t, err, "send transaction failed")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -149,12 +161,12 @@ func TestEth_EstimateGas(t *testing.T) {
 	signedTx, err := tx.WithSignature(signer, signature)
 	require.Nil(t, err, "pack tx")
 
-	ec.SendTransaction(context.Background(), signedTx)
+	err = ec.SendTransaction(context.Background(), signedTx)
+	require.Nil(t, err, "send transaction failed")
 }
 
 func TestEth_GetCode(t *testing.T) {
-	HOST = "http://localhost:8545"
-	ec, _ := ethclient.Dial(HOST)
+	ec, _ := ethclient.Dial(testHost)
 
 	code := common.FromHex(strings.TrimSpace(evmSolTestCompiledHex))
 
@@ -173,7 +185,8 @@ func TestEth_GetCode(t *testing.T) {
 	signedTx, err := tx.WithSignature(signer, signature)
 	require.Nil(t, err, "pack tx")
 
-	ec.SendTransaction(context.Background(), signedTx)
+	err = ec.SendTransaction(context.Background(), signedTx)
+	require.Nil(t, err, "send transaction failed")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -217,8 +230,7 @@ func TestEth_Call(t *testing.T) {
 	`
 	testabi, _ := abi.JSON(strings.NewReader(abidata))
 
-	HOST = "http://localhost:8545"
-	ec, _ := ethclient.Dial(HOST)
+	ec, _ := ethclient.Dial(testHost)
 
 	code := common.FromHex(strings.TrimSpace(evmSolTestCompiledHex))
 
@@ -237,7 +249,8 @@ func TestEth_Call(t *testing.T) {
 	signedTx, err := tx.WithSignature(signer, signature)
 	require.Nil(t, err, "pack tx")
 
-	ec.SendTransaction(context.Background(), signedTx)
+	err = ec.SendTransaction(context.Background(), signedTx)
+	require.Nil(t, err, "send transaction failed")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -273,20 +286,19 @@ func TestEth_Call(t *testing.T) {
 	require.Equal(t, "test", ret[0])
 }
 
-// TestERC20 deploy erc20 with no constructor
+// TestERC20 deploy erc20 with no constructor.
 //
-// pragma solidity ^0.8.0;
-// import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-// contract TestToken is ERC20 {
-// 	constructor() ERC20("Test", "TST") public {
-// 		_mint(msg.sender, 1000000 * (10 ** uint256(decimals())));
-// 	}
-// }
+//   pragma solidity ^0.8.0;
+//   import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+//   contract TestToken is ERC20 {
+// 	   constructor() ERC20("Test", "TST") public {
+// 	     _mint(msg.sender, 1000000 * (10 ** uint256(decimals())));
+// 	   }
+//   }
 func TestERC20(t *testing.T) {
 	testabi, _ := abi.JSON(strings.NewReader(erc20abi))
 
-	HOST = "http://localhost:8545"
-	ec, _ := ethclient.Dial(HOST)
+	ec, _ := ethclient.Dial(testHost)
 
 	code := common.FromHex(strings.TrimSpace(evmERC20TestCompiledHex))
 
@@ -305,7 +317,8 @@ func TestERC20(t *testing.T) {
 	signedTx, err := tx.WithSignature(signer, signature)
 	require.Nil(t, err, "pack tx")
 
-	ec.SendTransaction(context.Background(), signedTx)
+	err = ec.SendTransaction(context.Background(), signedTx)
+	require.Nil(t, err, "send transaction failed")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -332,7 +345,8 @@ func TestERC20(t *testing.T) {
 	require.Nil(t, err, "sign tx")
 	signedTx, err = tx.WithSignature(signer, signature)
 	require.Nil(t, err, "pack tx")
-	ec.SendTransaction(context.Background(), signedTx)
+	err = ec.SendTransaction(context.Background(), signedTx)
+	require.Nil(t, err, "send transaction failed")
 
 	receipt, err = waitTransaction(context.Background(), ec, signedTx.Hash())
 	if err != nil {
