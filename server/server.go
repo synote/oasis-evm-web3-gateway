@@ -16,7 +16,7 @@ import (
 type Server struct {
 	Config *conf.Config
 	Web3   *Web3Gateway
-	Db     storage.Storage
+	DB     storage.Storage
 }
 
 func (s *Server) Start() error {

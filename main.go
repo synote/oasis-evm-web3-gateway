@@ -104,7 +104,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 	svr := server.Server{
 		Config: cfg,
 		Web3:   w3,
-		Db:     db,
+		DB:     db,
 	}
 
 	svr.Start()
