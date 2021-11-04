@@ -640,33 +640,45 @@ func (api *PublicAPI) GetTransactionReceipt(txHash common.Hash) (map[string]inte
 	return receipt, nil
 }
 
-func (api *PublicAPI) GetLogs(filter filters.FilterCriteria) ([]*ethtypes.Log, error) {
-	api.Logger.Debug("eth_getLogs", "filter", filter)
-
-	startRoundInclusive := client.RoundLatest
-	endRoundInclusive := client.RoundLatest
+// getStartEndRounds is a helper for fetching start and end rounds parameters.
+func (api *PublicAPI) getStartEndRounds(filter filters.FilterCriteria) (uint64, uint64, error) {
+	start := client.RoundLatest
+	end := client.RoundLatest
 	if filter.BlockHash != nil {
 		round, err := api.backend.QueryBlockRound(*filter.BlockHash)
 		if err != nil {
-			return nil, fmt.Errorf("query block round: %w", err)
+			return 0, 0, fmt.Errorf("query block round: %w", err)
 		}
-		startRoundInclusive = round
-		endRoundInclusive = round
-	} else {
-		if filter.FromBlock != nil {
-			round, err := api.roundParamFromBlockNum(ethrpc.BlockNumber(filter.FromBlock.Int64()))
-			if err != nil {
-				return nil, fmt.Errorf("convert from block number to round: %w", err)
-			}
-			startRoundInclusive = round
+		start = round
+		end = round
+
+		return start, end, nil
+	}
+
+	if filter.FromBlock != nil {
+		round, err := api.roundParamFromBlockNum(ethrpc.BlockNumber(filter.FromBlock.Int64()))
+		if err != nil {
+			return 0, 0, fmt.Errorf("convert from block number to round: %w", err)
 		}
-		if filter.ToBlock != nil {
-			round, err := api.roundParamFromBlockNum(ethrpc.BlockNumber(filter.ToBlock.Int64()))
-			if err != nil {
-				return nil, fmt.Errorf("convert to block number to round: %w", err)
-			}
-			endRoundInclusive = round
+		start = round
+	}
+	if filter.ToBlock != nil {
+		round, err := api.roundParamFromBlockNum(ethrpc.BlockNumber(filter.ToBlock.Int64()))
+		if err != nil {
+			return 0, 0, fmt.Errorf("convert to block number to round: %w", err)
 		}
+		end = round
+	}
+
+	return start, end, nil
+}
+
+func (api *PublicAPI) GetLogs(filter filters.FilterCriteria) ([]*ethtypes.Log, error) {
+	api.Logger.Debug("eth_getLogs", "filter", filter)
+
+	startRoundInclusive, endRoundInclusive, err := api.getStartEndRounds(filter)
+	if err != nil {
+		return nil, fmt.Errorf("error getting start and end rounds: %w", err)
 	}
 
 	// Warning: this is unboundedly expensive

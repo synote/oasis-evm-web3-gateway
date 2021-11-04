@@ -48,7 +48,7 @@ func waitTransaction(ctx context.Context, ec *ethclient.Client, txhash common.Ha
 	}
 }
 
-func TestContractCreation(t *testing.T) {
+func testContractCreation(t *testing.T, value *big.Int) {
 	ec, _ := ethclient.Dial(testHost)
 
 	code := common.FromHex(strings.TrimSpace(evmSolTestCompiledHex))
@@ -62,7 +62,7 @@ func TestContractCreation(t *testing.T) {
 	// Create transaction
 	tx := types.NewTx(&types.LegacyTx{
 		Nonce:    nonce,
-		Value:    big.NewInt(0),
+		Value:    value,
 		Gas:      1000000,
 		GasPrice: big.NewInt(2),
 		Data:     code,
@@ -90,46 +90,12 @@ func TestContractCreation(t *testing.T) {
 	require.Equal(t, receipt.Status, uint64(1))
 }
 
+func TestContractCreation(t *testing.T) {
+	testContractCreation(t, big.NewInt(0))
+}
+
 func TestContractFailCreation(t *testing.T) {
-	ec, _ := ethclient.Dial(testHost)
-
-	code := common.FromHex(strings.TrimSpace(evmSolTestCompiledHex))
-
-	chainID, err := ec.ChainID(context.Background())
-	require.Nil(t, err, "get chainid")
-
-	nonce, err := ec.NonceAt(context.Background(), common.HexToAddress(daveEVMAddr), nil)
-	require.Nil(t, err, "get nonce failed")
-
-	// Create transaction with transfer which is not allowed in solidity non payable
-	tx := types.NewTx(&types.LegacyTx{
-		Nonce:    nonce,
-		Value:    big.NewInt(1),
-		Gas:      1000000,
-		GasPrice: big.NewInt(2),
-		Data:     code,
-	})
-	signer := types.LatestSignerForChainID(chainID)
-	signature, err := crypto.Sign(signer.Hash(tx).Bytes(), daveKey)
-	require.Nil(t, err, "sign tx")
-
-	signedTx, err := tx.WithSignature(signer, signature)
-	require.Nil(t, err, "pack tx")
-
-	err = ec.SendTransaction(context.Background(), signedTx)
-	require.Nil(t, err, "send transaction failed")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	receipt, err := waitTransaction(ctx, ec, signedTx.Hash())
-	if err != nil {
-		t.Errorf("get receipt failed: %s", err)
-		return
-	}
-	// t.Logf("failed creation receipt: %#v", receipt)
-
-	require.Equal(t, receipt.Status, uint64(0))
+	testContractCreation(t, big.NewInt(1))
 }
 
 func TestEth_EstimateGas(t *testing.T) {

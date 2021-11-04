@@ -29,7 +29,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "oasis-evm-web3-gateway",
 		Short: "oasis-evm-web3-gateway",
-		Run:   runRoot,
+		RunE:  runRoot,
 	}
 )
 
@@ -46,25 +46,25 @@ func main() {
 	}
 }
 
-func runRoot(cmd *cobra.Command, args []string) {
+func runRoot(cmd *cobra.Command, args []string) error {
 	// Initialize logging.
 	if err := logging.Initialize(os.Stdout, logging.FmtLogfmt, logging.LevelDebug, nil); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Unable to initialize logging: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	// Initialize server config
 	cfg, err := conf.InitConfig(configFile)
 	if err != nil {
 		logger.Error("failed to initialize config", "err", err)
-		os.Exit(1)
+		return err
 	}
 
 	// Decode hex runtime ID into something we can use.
 	var runtimeID common.Namespace
 	if err = runtimeID.UnmarshalHex(cfg.RuntimeID); err != nil {
 		logger.Error("malformed runtime ID", "err", err)
-		os.Exit(1)
+		return err
 	}
 
 	// Establish a gRPC connection with the client node.
@@ -72,7 +72,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 	conn, err := cmnGrpc.Dial(cfg.NodeAddress, grpc.WithInsecure())
 	if err != nil {
 		logger.Error("failed to establish connection", "err", err)
-		os.Exit(1)
+		return err
 	}
 	defer conn.Close()
 
@@ -83,7 +83,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 	db, err := psql.InitDB(cfg.PostDB)
 	if err != nil {
 		logger.Error("failed to initialize db", "err", err)
-		os.Exit(1)
+		return err
 	}
 
 	// Create Indexer
@@ -91,7 +91,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 	indx, backend, err := indexer.New(f, rc, runtimeID, db, cfg.EnablePruning, cfg.PruningStep)
 	if err != nil {
 		logger.Error("failed to create indexer", err)
-		os.Exit(1)
+		return err
 	}
 	indx.Start()
 
@@ -99,7 +99,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 	w3, err := server.New(cfg.Gateway)
 	if err != nil {
 		logger.Error("failed to create web3", err)
-		os.Exit(1)
+		return err
 	}
 	w3.RegisterAPIs(rpc.GetRPCAPIs(context.Background(), rc, logger, backend, cfg.Gateway))
 
@@ -111,7 +111,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 
 	if err = svr.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Unable to start Web3 server: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	go func() {
@@ -126,4 +126,6 @@ func runRoot(cmd *cobra.Command, args []string) {
 	}()
 
 	svr.Wait()
+
+	return nil
 }
