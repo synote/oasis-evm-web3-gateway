@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,12 +86,26 @@ func (h *httpServer) start() error {
 		h.log.Error("Tcp listen failed")
 		return err
 	}
-	// h.listener = listener
-	if err := h.server.Serve(listener); err != nil {
-		return err
+
+	// nolint:errcheck
+	go h.server.Serve(listener)
+	// Random port is determined by the server. Retrieve it.
+	if h.port == 0 {
+		h.endpoint = listener.Addr().String()
+		_, portStr, err := net.SplitHostPort(h.endpoint)
+		if err != nil {
+			h.log.Error("Splitting host:port of listener failed")
+			return err
+		}
+		h.port, err = strconv.Atoi(portStr)
+		if err != nil {
+			h.log.Error("Parsing of listener port failed. Is '%s' a service name instead?", portStr)
+			return err
+		}
 	}
 
 	h.log.Info("HTTP server started",
+		"provided_endpoint", h.endpoint,
 		"endpoint", listener.Addr(),
 		"prefix", h.httpConfig.prefix,
 		"cors", strings.Join(h.httpConfig.CorsAllowedOrigins, ","),

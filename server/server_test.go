@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
-
 	"github.com/starfishlabs/oasis-evm-web3-gateway/conf"
 )
 
@@ -33,7 +32,6 @@ func wsRequest(t *testing.T, url, browserOrigin string) error {
 // rpcRequest performs a JSON-RPC request to the given URL.
 func rpcRequest(t *testing.T, url string, extraHeaders ...string) *http.Response {
 	t.Helper()
-
 	// Create the request.
 	ctx := context.Background()
 	body := bytes.NewReader([]byte(`{"jsonrpc":"2.0","id":1,"method":"rpc_modules","params":[]}`))
@@ -77,12 +75,7 @@ type rpcPrefixTest struct {
 func (test rpcPrefixTest) check(t *testing.T, server *Web3Gateway) {
 	t.Helper()
 	httpBase := "http://" + server.http.endpoint
-	wsBase := "ws://" + server.http.endpoint
-
-	if server.ws.endpoint != wsBase+test.wsPrefix {
-		t.Errorf("Error: node has wrong WSEndpoint %q", server.ws.endpoint)
-	}
-
+	wsBase := "ws://" + server.ws.endpoint
 	for _, path := range test.wantHTTP {
 		resp := rpcRequest(t, httpBase+path)
 		if resp.StatusCode != 200 {
