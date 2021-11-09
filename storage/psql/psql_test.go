@@ -31,7 +31,7 @@ func TestInitPostDb(t *testing.T) {
 		Hash:  "world",
 	}
 	block3 := &model.BlockRef{
-		Round: 1,
+		Round: 3,
 		Hash:  "hello world",
 	}
 	if err = db.Store(block1); err != nil {
@@ -53,7 +53,7 @@ func TestInitPostDb(t *testing.T) {
 
 	hash, err = db.GetLatestBlockHash()
 	require.NoError(err)
-	require.EqualValues("world", hash, "GetLatestBlockHash should return expected hash")
+	require.EqualValues("hello world", hash, "GetLatestBlockHash should return expected hash")
 
 	tx1 := &model.TransactionRef{
 		EthTxHash: "hello",
@@ -62,7 +62,7 @@ func TestInitPostDb(t *testing.T) {
 		BlockHash: "abc123",
 	}
 	tx2 := &model.TransactionRef{
-		EthTxHash: "hello",
+		EthTxHash: "hello2",
 		Index:     1,
 		Round:     2,
 		BlockHash: "cde456",
@@ -133,11 +133,11 @@ func TestInitPostDb(t *testing.T) {
 		S:          big.NewInt(3).String(),
 	}
 	err = db.Store(legacyTx)
-	require.Nil(t, err, "unable to store legacy transaction")
+	require.NoError(err, "unable to store legacy transaction")
 	err = db.Store(accessListTx)
-	require.Nil(t, err, "unable to store access list transaction")
+	require.NoError(err, "unable to store access list transaction")
 	err = db.Store(dynamicFeeTx)
-	require.Nil(t, err, "unable to store dynamic fee transaction")
+	require.NoError(err, "unable to store dynamic fee transaction")
 
 	tx, err := db.GetTransaction("hello")
 	require.NoError(err)
