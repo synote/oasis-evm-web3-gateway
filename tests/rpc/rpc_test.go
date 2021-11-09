@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -24,16 +25,23 @@ const (
 	daveEVMAddr = "0xdce075e1c39b1ae0b75d554558b6451a226ffe00"
 	// zeroString is zero in hex bytes used in jsonrpc.
 	zeroString = "0x0"
-	// testHost is localhost for tests.
-	testHost = "http://localhost:8545"
 )
 
 // The dave private key derive from the seed "oasis-runtime-sdk/test-keys: dave".
 var daveKey, _ = crypto.HexToECDSA("c0e43d8755f201b715fd5a9ce0034c568442543ae0a0ee1aec2985ffe40edb99")
 
 func TestMain(m *testing.M) {
-	// Start all tests
+	fmt.Println("TestMain!")
+	if err := Setup(); err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	// Run tests.
 	code := m.Run()
+
+	if err := Shutdown(); err != nil {
+		log.Printf("%v", err)
+	}
 	os.Exit(code)
 }
 
@@ -51,7 +59,11 @@ func call(t *testing.T, method string, params interface{}) *Response {
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
-	res, err := http.NewRequestWithContext(context.Background(), http.MethodPost, testHost, bytes.NewBuffer(req))
+	endpoint, err := w3.GetHttpEndpoint()
+	if err != nil {
+		log.Fatalf("failed to obtain HTTP endpoint: %v", err)
+	}
+	res, err := http.NewRequestWithContext(context.Background(), http.MethodPost, endpoint, bytes.NewBuffer(req))
 	require.NoError(t, err)
 
 	decoder := json.NewDecoder(res.Body)
@@ -95,7 +107,12 @@ func TestEth_GetTransactionCount(t *testing.T) {
 }
 
 func localClient() *ethclient.Client {
-	c, _ := ethclient.Dial(testHost)
+	url, err := w3.GetHttpEndpoint()
+	if err != nil {
+		return nil
+	}
+
+	c, _ := ethclient.Dial(url)
 	return c
 }
 
@@ -177,7 +194,10 @@ func TestEth_BlockNumber(t *testing.T) {
 }
 
 func TestEth_GetTransactionByHash(t *testing.T) {
-	ec, _ := ethclient.Dial(testHost)
+	url, err := w3.GetHttpEndpoint()
+	require.NoError(t, err)
+
+	ec, _ := ethclient.Dial(url)
 
 	chainID := big.NewInt(42261)
 	data := common.FromHex("0x7f7465737432000000000000000000000000000000000000000000000000000000600057")

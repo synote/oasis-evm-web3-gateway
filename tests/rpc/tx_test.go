@@ -49,7 +49,9 @@ func waitTransaction(ctx context.Context, ec *ethclient.Client, txhash common.Ha
 }
 
 func testContractCreation(t *testing.T, value *big.Int) {
-	ec, _ := ethclient.Dial(testHost)
+	url, err := w3.GetHttpEndpoint()
+	require.NoError(t, err)
+	ec, _ := ethclient.Dial(url)
 
 	code := common.FromHex(strings.TrimSpace(evmSolTestCompiledHex))
 
@@ -132,7 +134,9 @@ func TestEth_EstimateGas(t *testing.T) {
 }
 
 func TestEth_GetCode(t *testing.T) {
-	ec, _ := ethclient.Dial(testHost)
+	url, err := w3.GetHttpEndpoint()
+	require.NoError(t, err)
+	ec, _ := ethclient.Dial(url)
 
 	code := common.FromHex(strings.TrimSpace(evmSolTestCompiledHex))
 
@@ -196,7 +200,9 @@ func TestEth_Call(t *testing.T) {
 	`
 	testabi, _ := abi.JSON(strings.NewReader(abidata))
 
-	ec, _ := ethclient.Dial(testHost)
+	url, err := w3.GetHttpEndpoint()
+	require.NoError(t, err)
+	ec, _ := ethclient.Dial(url)
 
 	code := common.FromHex(strings.TrimSpace(evmSolTestCompiledHex))
 
@@ -264,7 +270,9 @@ func TestEth_Call(t *testing.T) {
 func TestERC20(t *testing.T) {
 	testabi, _ := abi.JSON(strings.NewReader(erc20abi))
 
-	ec, _ := ethclient.Dial(testHost)
+	url, err := w3.GetHttpEndpoint()
+	require.NoError(t, err)
+	ec, _ := ethclient.Dial(url)
 
 	code := common.FromHex(strings.TrimSpace(evmERC20TestCompiledHex))
 

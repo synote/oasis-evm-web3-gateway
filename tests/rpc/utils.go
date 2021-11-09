@@ -8,14 +8,23 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	cmnEth "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/oasisprotocol/oasis-core/go/common"
+	cmnGrpc "github.com/oasisprotocol/oasis-core/go/common/grpc"
+	"github.com/oasisprotocol/oasis-core/go/common/logging"
+	"github.com/oasisprotocol/oasis-sdk/client-sdk/go/client"
 	"github.com/pkg/errors"
+	"github.com/starfishlabs/oasis-evm-web3-gateway/conf"
+	"github.com/starfishlabs/oasis-evm-web3-gateway/indexer"
+	"github.com/starfishlabs/oasis-evm-web3-gateway/rpc"
+	"github.com/starfishlabs/oasis-evm-web3-gateway/server"
+	"github.com/starfishlabs/oasis-evm-web3-gateway/storage/psql"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 )
 
 type Request struct {
@@ -37,7 +46,86 @@ type Response struct {
 	Result json.RawMessage `json:"result,omitempty"`
 }
 
-var HOST = os.Getenv("HOST")
+var Cfg = conf.Config{
+	RuntimeID:     "8000000000000000000000000000000000000000000000000000000000000000",
+	NodeAddress:   "unix:/tmp/eth-runtime-test/net-runner/network/client-0/internal.sock",
+	EnablePruning: false,
+	PruningStep:   0,
+	PostDB: &conf.PostDBConfig{
+		Host:     "127.0.0.1",
+		Port:     5432,
+		DB:       "postgres",
+		User:     "postgres",
+		Password: "postgres",
+		Timeout:  5,
+	},
+	Gateway: &conf.GatewayConfig{
+		ChainID: 42261,
+		HTTP: &conf.GatewayHTTPConfig{
+			Host:       "127.0.0.1",
+			PathPrefix: "/",
+		},
+		WS: &conf.GatewayWSConfig{
+			Host:       "127.0.0.1",
+			PathPrefix: "/",
+		},
+	},
+}
+
+var (
+	w3 *server.Web3Gateway
+)
+
+// Setup spins up web3 gateway.
+func Setup() error {
+	// Establish a gRPC connection with the client node.
+	conn, err := cmnGrpc.Dial(Cfg.NodeAddress, grpc.WithInsecure())
+	if err != nil {
+		return fmt.Errorf("setup: failed to establish gRPC connection with oasis-node: %v", err)
+	}
+
+	// Decode hex runtime ID into something we can use.
+	var runtimeID common.Namespace
+	if err = runtimeID.UnmarshalHex(Cfg.RuntimeID); err != nil {
+		return fmt.Errorf("malformed runtime ID: %v", err)
+	}
+
+	// Create the Oasis runtime client.
+	rc := client.New(conn, runtimeID)
+
+	// Initialize db.
+	db, err := psql.InitDB(Cfg.PostDB)
+	if err != nil {
+		return fmt.Errorf("failed to initialize DB: %v", err)
+	}
+
+	// Create Indexer.
+	f := indexer.NewPsqlBackend()
+	indx, backend, err := indexer.New(f, rc, runtimeID, db, Cfg.EnablePruning, Cfg.PruningStep)
+	if err != nil {
+		return fmt.Errorf("failed to create indexer: %v", err)
+	}
+	indx.Start()
+
+	// Create Web3 Gateway.
+	w3, err = server.New(Cfg.Gateway)
+	if err != nil {
+		return fmt.Errorf("setup: failed creating server: %v", err)
+	}
+
+	w3.RegisterAPIs(rpc.GetRPCAPIs(context.Background(), rc, logging.GetLogger("evm-gateway-tests"), backend, Cfg.Gateway))
+
+	if err = w3.Start(); err != nil {
+		w3.Close()
+		return fmt.Errorf("setup: failed to start server: %v", err)
+	}
+	return nil
+}
+
+// Shutdown stops web3 gateway.
+func Shutdown() error {
+	return w3.Close()
+}
 
 func GetAddress() ([]byte, error) {
 	rpcRes, err := CallWithError("eth_accounts", []string{})
@@ -70,7 +158,9 @@ func Call(t *testing.T, method string, params interface{}) *Response {
 	var rpcRes *Response
 	time.Sleep(1 * time.Second)
 
-	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", HOST, bytes.NewBuffer(req))
+	url, err := w3.GetHttpEndpoint()
+	require.NoError(t, err)
+	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewBuffer(req))
 	if err != nil {
 		require.NoError(t, err)
 	}
@@ -103,7 +193,11 @@ func CallWithError(method string, params interface{}) (*Response, error) {
 	var rpcRes *Response
 	time.Sleep(1 * time.Second)
 
-	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", HOST, bytes.NewBuffer(req))
+	url, err := w3.GetHttpEndpoint()
+	if err != nil {
+		return nil, err
+	}
+	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewBuffer(req))
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +362,7 @@ func GetNonce(t *testing.T, block string) hexutil.Uint64 {
 }
 
 func UnlockAllAccounts(t *testing.T) {
-	var accts []common.Address
+	var accts []cmnEth.Address
 	rpcRes := Call(t, "eth_accounts", []map[string]string{})
 	err := json.Unmarshal(rpcRes.Result, &accts)
 	require.NoError(t, err)
