@@ -72,9 +72,7 @@ var Cfg = conf.Config{
 	},
 }
 
-var (
-	w3 *server.Web3Gateway
-)
+var w3 *server.Web3Gateway
 
 // Setup spins up web3 gateway.
 func Setup() error {
@@ -158,7 +156,7 @@ func Call(t *testing.T, method string, params interface{}) *Response {
 	var rpcRes *Response
 	time.Sleep(1 * time.Second)
 
-	url, err := w3.GetHttpEndpoint()
+	url, err := w3.GetHTTPEndpoint()
 	require.NoError(t, err)
 	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewBuffer(req))
 	if err != nil {
@@ -193,7 +191,7 @@ func CallWithError(method string, params interface{}) (*Response, error) {
 	var rpcRes *Response
 	time.Sleep(1 * time.Second)
 
-	url, err := w3.GetHttpEndpoint()
+	url, err := w3.GetHTTPEndpoint()
 	if err != nil {
 		return nil, err
 	}

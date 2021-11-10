@@ -59,7 +59,7 @@ func call(t *testing.T, method string, params interface{}) *Response {
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
-	endpoint, err := w3.GetHttpEndpoint()
+	endpoint, err := w3.GetHTTPEndpoint()
 	if err != nil {
 		log.Fatalf("failed to obtain HTTP endpoint: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestEth_GetTransactionCount(t *testing.T) {
 }
 
 func localClient() *ethclient.Client {
-	url, err := w3.GetHttpEndpoint()
+	url, err := w3.GetHTTPEndpoint()
 	if err != nil {
 		return nil
 	}
@@ -194,7 +194,7 @@ func TestEth_BlockNumber(t *testing.T) {
 }
 
 func TestEth_GetTransactionByHash(t *testing.T) {
-	url, err := w3.GetHttpEndpoint()
+	url, err := w3.GetHTTPEndpoint()
 	require.NoError(t, err)
 
 	ec, _ := ethclient.Dial(url)

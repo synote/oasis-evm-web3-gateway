@@ -49,7 +49,7 @@ func waitTransaction(ctx context.Context, ec *ethclient.Client, txhash common.Ha
 }
 
 func testContractCreation(t *testing.T, value *big.Int) {
-	url, err := w3.GetHttpEndpoint()
+	url, err := w3.GetHTTPEndpoint()
 	require.NoError(t, err)
 	ec, _ := ethclient.Dial(url)
 
@@ -134,7 +134,7 @@ func TestEth_EstimateGas(t *testing.T) {
 }
 
 func TestEth_GetCode(t *testing.T) {
-	url, err := w3.GetHttpEndpoint()
+	url, err := w3.GetHTTPEndpoint()
 	require.NoError(t, err)
 	ec, _ := ethclient.Dial(url)
 
@@ -200,7 +200,7 @@ func TestEth_Call(t *testing.T) {
 	`
 	testabi, _ := abi.JSON(strings.NewReader(abidata))
 
-	url, err := w3.GetHttpEndpoint()
+	url, err := w3.GetHTTPEndpoint()
 	require.NoError(t, err)
 	ec, _ := ethclient.Dial(url)
 
@@ -270,7 +270,7 @@ func TestEth_Call(t *testing.T) {
 func TestERC20(t *testing.T) {
 	testabi, _ := abi.JSON(strings.NewReader(erc20abi))
 
-	url, err := w3.GetHttpEndpoint()
+	url, err := w3.GetHTTPEndpoint()
 	require.NoError(t, err)
 	ec, _ := ethclient.Dial(url)
 

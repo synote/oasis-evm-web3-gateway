@@ -246,8 +246,9 @@ func (api *PublicAPI) GetBalance(address common.Address, blockNum ethrpc.BlockNu
 	return (*hexutil.Big)(res.ToBigInt()), nil
 }
 
-// ChainID return the EIP-155  chain id for the current network.
-func (api *PublicAPI) ChainID() (*hexutil.Big, error) {
+// nolint:revive,stylecheck
+// ChainId return the EIP-155  chain id for the current network.
+func (api *PublicAPI) ChainId() (*hexutil.Big, error) {
 	return (*hexutil.Big)(big.NewInt(int64(api.chainID))), nil
 }
 

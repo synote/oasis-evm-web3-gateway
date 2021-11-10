@@ -237,8 +237,8 @@ func (srv *Web3Gateway) RegisterAPIs(apis []rpc.API) {
 	srv.rpcAPIs = append(srv.rpcAPIs, apis...)
 }
 
-// GetHttpEndpoint returns the address of HTTP endpoint.
-func (srv *Web3Gateway) GetHttpEndpoint() (string, error) {
+// GetHTTPEndpoint returns the address of HTTP endpoint.
+func (srv *Web3Gateway) GetHTTPEndpoint() (string, error) {
 	if srv.http == nil {
 		return "", fmt.Errorf("failed to obtain http endpoint")
 	}
