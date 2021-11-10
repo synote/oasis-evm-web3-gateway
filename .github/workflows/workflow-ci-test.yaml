@@ -75,6 +75,7 @@ jobs:
       # start evm-paratime
       - name: start evm paratime
         run:  |
+            pwd
             cd ./oasis/oasis-evm-paratime
             cargo build
       #      #################################
