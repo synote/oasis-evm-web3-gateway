@@ -107,7 +107,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 	indx.Start()
 
 	// Create web3 gateway instance
-	w3, err := server.New(cfg.Gateway)
+	w3, err := server.New(cfg.Gateway, logger)
 	if err != nil {
 		logger.Error("failed to create web3", err)
 		os.Exit(1)
