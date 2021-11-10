@@ -1,0 +1,93 @@
+# This is a basic workflow to help you get started with Actions
+
+name: work-ci-test 
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+# Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-20.04
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # install rust
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          components: rustfmt 
+          target: wasm32-unknown-unknown 
+
+      # debug 
+      - name: debug 
+        run: |
+           cargo --version 
+
+      # install go
+      - name: Set up Go 1.16
+        uses: actions/setup-go@v2.1.4
+        with:
+          go-version: "1.16.x"
+
+      # install db
+      - uses: harmon758/postgresql-action@v1
+        with:
+        postgresql version: '12' 
+
+      # configure db
+      # to do
+            
+      # install oasis-node
+      - name: install oasis node
+        run: |
+           wget oasis-address  ##########################################
+           mkdir -p oasis-node/bin
+           cd oasis-node/bin
+           pwd 
+           tar xf ../../oasis_core_21.3.5_linux_amd64.tar.gz --strip-components=1  
+
+      # checks-out evm-paratime
+      - name: Checkout evm paratime
+        uses: actions/checkout@v2
+        with:
+            repository: starfishlabs/oasis-evm-paratime
+            path: ./oasis
+            ref: main 
+
+      # checkout-out web3gateway
+      - name: checkout web3gateway 
+        uses: actions/checkout@v2
+        with: 
+            path: ./oasis
+            ref: main
+
+      # start evm-paratime
+      - name: start evm paratime
+        run:  |
+            cd ./oasis/oasis-evm-paratime
+            cargo build
+            #################################
+            timeout 10m bash start.sh &  
+
+      # start web3gateway
+      - name: start web3gateway 
+        run:  |
+            cd ./oasis/oasis-evm-web3-gateway
+            go build
+            timeout 10m bash ./oasis-evm-web3-gateway &
+
+      # run test
+      - name: run test 
+        run:  |
+            cd ./oasis/oasis-evm-web3-gateway/tests/rpc
+            go test
