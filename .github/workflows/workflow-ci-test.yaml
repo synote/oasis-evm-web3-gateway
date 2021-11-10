@@ -48,10 +48,10 @@ jobs:
       - name: install oasis node
         run: |
            ls
+           cd ../../
            wget https://github.com/oasisprotocol/oasis-core/releases/download/v21.3.5/oasis_core_21.3.5_linux_amd64.tar.gz 
            ls
            pwd
-           cd ../../
            mkdir -p oasis-node/bin
            cd ./oasis-node/bin
            pwd 
@@ -72,11 +72,11 @@ jobs:
             path: ./oasis
             ref: main
 
-      ## start evm-paratime
-      #- name: start evm paratime
-      #  run:  |
-      #      cd ./oasis/oasis-evm-paratime
-      #      cargo build
+      # start evm-paratime
+      - name: start evm paratime
+        run:  |
+            cd ./oasis/oasis-evm-paratime
+            cargo build
       #      #################################
       #      timeout 10m bash start.sh &  
 
