@@ -32,7 +32,7 @@ jobs:
       OASIS_CORE_VERSION: 21.3.1
       OASIS_NODE: ${{ github.workspace }}/oasis_core/oasis-node
       OASIS_NET_RUNNER: ${{ github.workspace }}/oasis_core/oasis-net-runner
-      OASIS_EMERALD_VERSION: 0.1.0-alpha1
+      OASIS_EMERALD_VERSION: 3.0.0-alpha
       OASIS_EMERALD_PARATIME: ${{ github.workspace }}/oasis_core/emerald-paratime
       TEST: ${{ matrix.testCmd }}
     steps:
