@@ -30,11 +30,11 @@ jobs:
         run: |
            cargo --version 
 
-      ## install go
-      #- name: Set up Go 1.16
-      #  uses: actions/setup-go@v2.1.4
-      #  with:
-      #    go-version: "1.16.x"
+      # install go
+      - name: Set up Go 1.16
+        uses: actions/setup-go@v2.1.4
+        with:
+          go-version: "1.16.x"
 
       ## install db
       #- uses: harmon758/postgresql-action@v1
