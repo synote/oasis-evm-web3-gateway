@@ -6,9 +6,9 @@ name: work-ci-test
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ main ]
+    branches: [ ct-test-workflow]
   pull_request:
-    branches: [ main ]
+    branches: [ ci-test-workflow]
 # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
