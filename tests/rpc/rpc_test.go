@@ -62,7 +62,6 @@ func call(t *testing.T, method string, params interface{}) *Response {
 	if err != nil {
 		log.Fatalf("failed to obtain HTTP endpoint: %v", err)
 	}
-	// nolint:gosec
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, endpoint, bytes.NewBuffer(rawReq))
 	req.Header.Set("Content-Type", "application/json")
 	require.NoError(t, err)
