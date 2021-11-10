@@ -56,15 +56,16 @@ jobs:
       - run: export TEST_BASE_DIR=/tmp/eth-runtime-test
       - run: export OASIS_NODE_GRPC_ADDR=unix:${TEST_BASE_DIR}/net-runner/network/client-0/internal.sock
       - run: export FIXTURE_FILE="${TEST_BASE_DIR}/fixture.json"
-      - run: ${OASIS_NET_RUNNER} dump-fixture \
-        --fixture.default.node.binary ${OASIS_NODE} \
-        --fixture.default.deterministic_entities \
-        --fixture.default.fund_entities \
-        --fixture.default.num_entities 2 \
-        --fixture.default.keymanager.binary '' \
-        --fixture.default.runtime.binary=${OASIS_EMERALD_PARATIME} \
-        --fixture.default.halt_epoch 100000 \
-        --fixture.default.staking_genesis ${GITHUB_WORKSPACE}/tests/staking_genesis.json > "$FIXTURE_FILE"
+      - run: |
+          ${OASIS_NET_RUNNER} dump-fixture \
+            --fixture.default.node.binary ${OASIS_NODE} \
+            --fixture.default.deterministic_entities \
+            --fixture.default.fund_entities \
+            --fixture.default.num_entities 2 \
+            --fixture.default.keymanager.binary '' \
+            --fixture.default.runtime.binary=${OASIS_EMERALD_PARATIME} \
+            --fixture.default.halt_epoch 100000 \
+            --fixture.default.staking_genesis ${GITHUB_WORKSPACE}/tests/staking_genesis.json > "$FIXTURE_FILE"
       - run: jq '.clients[0].runtime_config."1".allow_expensive_queries = true' "$FIXTURE_FILE" > "$FIXTURE_FILE.tmp"
       - run: mv "$FIXTURE_FILE.tmp" "$FIXTURE_FILE"
 
