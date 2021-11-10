@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -16,7 +17,17 @@ import (
 	"github.com/oasisprotocol/oasis-core/go/common"
 	cmnGrpc "github.com/oasisprotocol/oasis-core/go/common/grpc"
 	"github.com/oasisprotocol/oasis-core/go/common/logging"
+	"github.com/oasisprotocol/oasis-core/go/common/quantity"
 	"github.com/oasisprotocol/oasis-sdk/client-sdk/go/client"
+	"github.com/oasisprotocol/oasis-sdk/client-sdk/go/crypto/signature"
+	"github.com/oasisprotocol/oasis-sdk/client-sdk/go/crypto/signature/ed25519"
+	"github.com/oasisprotocol/oasis-sdk/client-sdk/go/crypto/signature/secp256k1"
+	"github.com/oasisprotocol/oasis-sdk/client-sdk/go/crypto/signature/sr25519"
+	"github.com/oasisprotocol/oasis-sdk/client-sdk/go/modules/accounts"
+	consAccClient "github.com/oasisprotocol/oasis-sdk/client-sdk/go/modules/consensusaccounts"
+	"github.com/oasisprotocol/oasis-sdk/client-sdk/go/modules/core"
+	oasisTesting "github.com/oasisprotocol/oasis-sdk/client-sdk/go/testing"
+	"github.com/oasisprotocol/oasis-sdk/client-sdk/go/types"
 	"github.com/pkg/errors"
 	"github.com/starfishlabs/oasis-evm-web3-gateway/conf"
 	"github.com/starfishlabs/oasis-evm-web3-gateway/indexer"
@@ -91,6 +102,10 @@ func Setup() error {
 	// Create the Oasis runtime client.
 	rc := client.New(conn, runtimeID)
 
+	if err = InitialDeposit(rc, 1000000000000); err != nil {
+		return fmt.Errorf("initial deposit failed: %v", err)
+	}
+
 	// Initialize db.
 	db, err := psql.InitDB(Cfg.PostDB)
 	if err != nil {
@@ -117,6 +132,85 @@ func Setup() error {
 		w3.Close()
 		return fmt.Errorf("setup: failed to start server: %v", err)
 	}
+	return nil
+}
+
+func sigspecForSigner(signer signature.Signer) types.SignatureAddressSpec {
+	switch pk := signer.Public().(type) {
+	case ed25519.PublicKey:
+		return types.NewSignatureAddressSpecEd25519(pk)
+	case secp256k1.PublicKey:
+		return types.NewSignatureAddressSpecSecp256k1Eth(pk)
+	case sr25519.PublicKey:
+		return types.NewSignatureAddressSpecSr25519(pk)
+	default:
+		panic(fmt.Sprintf("unsupported signer type: %T", pk))
+	}
+}
+
+func InitialDeposit(rc client.RuntimeClient, amount uint64) error {
+	if amount == 0 {
+		return fmt.Errorf("no deposit amount provided")
+	}
+	if rc == nil {
+		return fmt.Errorf("no runtime client provided")
+	}
+
+	signer := oasisTesting.Alice.Signer
+	// Corresponds to Dave's address 0x90adE3B7065fa715c7a150313877dF1d33e777D5.
+	to := "oasis1qpupfu7e2n6pkezeaw0yhj8mcem8anj64ytrayne"
+	extraGas := uint64(0)
+	flag.Parse()
+
+	consAcc := consAccClient.NewV1(rc)
+
+	ctx, cancelFn := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancelFn()
+
+	var addr types.Address
+	if err := addr.UnmarshalText([]byte(to)); err != nil {
+		return err
+	}
+	ba := types.NewBaseUnits(*quantity.NewFromUint64(amount), types.NativeDenomination)
+	txb := consAcc.Deposit(&addr, ba).SetFeeConsensusMessages(1)
+	tx := *txb.GetTransaction()
+
+	// Get chain context.
+	chainInfo, err := rc.GetInfo(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Get current nonce for the signer's account.
+	ac := accounts.NewV1(rc)
+	nonce, err := ac.Nonce(ctx, client.RoundLatest, types.NewAddress(sigspecForSigner(signer)))
+	if err != nil {
+		return err
+	}
+	tx.AppendAuthSignature(sigspecForSigner(signer), nonce)
+
+	// Estimate gas.
+	// Set the starting gas to something high, so we don't run out.
+	tx.AuthInfo.Fee.Gas = 1000000
+	// Estimate gas usage.
+	gas, err := core.NewV1(rc).EstimateGas(ctx, client.RoundLatest, &tx)
+	if err != nil {
+		return fmt.Errorf("unable to estimate gas: %v", err)
+	}
+	// Specify only as much gas as was estimated.
+	tx.AuthInfo.Fee.Gas = gas + extraGas
+
+	// Sign the transaction.
+	stx := tx.PrepareForSigning()
+	if err = stx.AppendSign(chainInfo.ChainContext, signer); err != nil {
+		return err
+	}
+
+	// Submit the signed transaction.
+	if _, err = rc.SubmitTx(ctx, stx.UnverifiedTransaction()); err != nil {
+		return err
+	}
+
 	return nil
 }
 

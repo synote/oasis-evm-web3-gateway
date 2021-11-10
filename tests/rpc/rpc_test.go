@@ -22,7 +22,7 @@ import (
 
 const (
 	// daveEVMAddr is Dave's address generated from github.com/oasisprotocol/oasis-sdk/client-sdk/go/testing.
-	daveEVMAddr = "0xdce075e1c39b1ae0b75d554558b6451a226ffe00"
+	daveEVMAddr = "0x90adE3B7065fa715c7a150313877dF1d33e777D5"
 	// zeroString is zero in hex bytes used in jsonrpc.
 	zeroString = "0x0"
 )
@@ -31,7 +31,6 @@ const (
 var daveKey, _ = crypto.HexToECDSA("c0e43d8755f201b715fd5a9ce0034c568442543ae0a0ee1aec2985ffe40edb99")
 
 func TestMain(m *testing.M) {
-	fmt.Println("TestMain!")
 	if err := Setup(); err != nil {
 		log.Fatalf("%v", err)
 	}
@@ -55,7 +54,7 @@ func createRequest(method string, params interface{}) Request {
 }
 
 func call(t *testing.T, method string, params interface{}) *Response {
-	req, err := json.Marshal(createRequest(method, params))
+	rawReq, err := json.Marshal(createRequest(method, params))
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
@@ -63,7 +62,13 @@ func call(t *testing.T, method string, params interface{}) *Response {
 	if err != nil {
 		log.Fatalf("failed to obtain HTTP endpoint: %v", err)
 	}
-	res, err := http.NewRequestWithContext(context.Background(), http.MethodPost, endpoint, bytes.NewBuffer(req))
+	// nolint:gosec
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, endpoint, bytes.NewBuffer(rawReq))
+	req.Header.Set("Content-Type", "application/json")
+	require.NoError(t, err)
+
+	client := http.Client{}
+	res, err := client.Do(req)
 	require.NoError(t, err)
 
 	decoder := json.NewDecoder(res.Body)
@@ -87,9 +92,7 @@ func TestEth_GetBalance(t *testing.T) {
 
 	t.Logf("Got balance %s for %s\n", res.String(), daveEVMAddr)
 
-	if res.ToInt().Cmp(big.NewInt(0)) == 0 {
-		t.Errorf("expected balance: %d, got: %s", 0, res.String())
-	}
+	require.EqualValues(t, big.NewInt(1).SetInt64(0), res.ToInt())
 }
 
 func getNonce(t *testing.T, from string) hexutil.Uint64 {
