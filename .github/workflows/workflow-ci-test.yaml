@@ -22,11 +22,8 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # install rust
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          components: rustfmt 
-          target: wasm32-unknown-unknown 
+      - name: Install Rust use Substrate actions script
+        uses: digitalnativeinc/install-rust-substrate-action@0.4.0
 
       # debug 
       - name: debug 
