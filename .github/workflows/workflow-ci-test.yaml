@@ -55,20 +55,20 @@ jobs:
            pwd 
            tar xf ../../oasis_core_21.3.5_linux_amd64.tar.gz --strip-components=1  
 
-      ## checks-out evm-paratime
-      #- name: Checkout evm paratime
-      #  uses: actions/checkout@v2
-      #  with:
-      #      repository: starfishlabs/oasis-evm-paratime
-      #      path: ./oasis
-      #      ref: main 
+      # checks-out evm-paratime
+      - name: Checkout evm paratime
+        uses: actions/checkout@v2
+        with:
+            repository: starfishlabs/oasis-evm-paratime
+            path: ./oasis
+            ref: main 
 
-      ## checkout-out web3gateway
-      #- name: checkout web3gateway 
-      #  uses: actions/checkout@v2
-      #  with: 
-      #      path: ./oasis
-      #      ref: main
+      # checkout-out web3gateway
+      - name: checkout web3gateway 
+        uses: actions/checkout@v2
+        with: 
+            path: ./oasis
+            ref: main
 
       ## start evm-paratime
       #- name: start evm paratime
