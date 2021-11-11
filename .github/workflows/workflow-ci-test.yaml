@@ -84,10 +84,10 @@ jobs:
         run:  |
             pwd
             ls
-            cd ..
+            cd oasis-evm-paratime 
             pwd
             ls
-      #      cargo build
+            cargo build
       #      cd oasis/oasis-evm-paratime
       #      #################################
       #      timeout 10m bash start.sh &  
