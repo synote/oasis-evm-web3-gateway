@@ -88,16 +88,15 @@ jobs:
             pwd
             ls
             cargo build
-      #      cd oasis/oasis-evm-paratime
       #      #################################
       #      timeout 10m bash start.sh &  
 
-      ## start web3gateway
-      #- name: start web3gateway 
-      #  run:  |
-      #      cd ./oasis/oasis-evm-web3-gateway
-      #      go build
-      #      timeout 10m bash ./oasis-evm-web3-gateway &
+      # start web3gateway
+      - name: start web3gateway 
+        run:  |
+            cd ./oasis-evm-web3-gateway
+            go build
+            timeout 10m bash ./oasis-evm-web3-gateway &
 
       ## run test
       #- name: run test 
