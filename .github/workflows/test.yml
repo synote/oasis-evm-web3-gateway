@@ -1,0 +1,80 @@
+# NOTE: This name appears in GitHub's Checks API and in workflow's status badge.
+name: ci-test
+
+# Trigger the workflow when:
+on:
+  # A push occurs to one of the matched branches.
+  push:
+    branches:
+      - main
+      - stable/*
+  # Or when a pull request event occurs for a pull request against one of the
+  # matched branches.
+  pull_request:
+    branches:
+      - main
+      - stable/*
+
+jobs:
+  test-go:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+    env:
+      OASIS_CORE_VERSION: 21.3.1
+      OASIS_NODE: ${{ github.workspace }}/oasis_core/oasis-node
+      OASIS_NET_RUNNER: ${{ github.workspace }}/oasis_core/oasis-net-runner
+      OASIS_EMERALD_VERSION: 3.0.0-alpha
+      OASIS_EMERALD_PARATIME: ${{ github.workspace }}/oasis_core/emerald-paratime
+      TEST_BASE_DIR: /tmp/eth-runtime-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Go 1.16
+        uses: actions/setup-go@v2.1.4
+        with:
+          go-version: "1.16.x"
+
+      # Get oasis-node, oasis-net-runner, emerald paratime.
+      - run: mkdir "$(dirname ${OASIS_NODE})"
+      - run: wget "https://github.com/oasisprotocol/oasis-core/releases/download/v${OASIS_CORE_VERSION}/oasis_core_${OASIS_CORE_VERSION}_linux_amd64.tar.gz"
+      - run: tar xfvz "oasis_core_${OASIS_CORE_VERSION}_linux_amd64.tar.gz"
+      - run: mv "oasis_core_${OASIS_CORE_VERSION}_linux_amd64/oasis-node" "${OASIS_NODE}"
+      - run: mv "oasis_core_${OASIS_CORE_VERSION}_linux_amd64/oasis-net-runner" "${OASIS_NET_RUNNER}"
+      - run: wget "https://github.com/oasisprotocol/emerald-paratime/releases/download/v${OASIS_EMERALD_VERSION}/emerald-paratime" -O "${OASIS_EMERALD_PARATIME}"
+
+      # Prepare configuration for oasis-node (fixture).
+      - run: echo "OASIS_NODE_GRPC_ADDR=unix:${TEST_BASE_DIR}/net-runner/network/client-0/internal.sock" >> $GITHUB_ENV
+      - run: echo "FIXTURE_FILE=${TEST_BASE_DIR}/fixture.json" >> $GITHUB_ENV
+      - run: mkdir "$TEST_BASE_DIR"
+      - run: |
+          ${OASIS_NET_RUNNER} dump-fixture \
+            --fixture.default.node.binary "${OASIS_NODE}" \
+            --fixture.default.deterministic_entities \
+            --fixture.default.fund_entities \
+            --fixture.default.num_entities 2 \
+            --fixture.default.keymanager.binary '' \
+            --fixture.default.runtime.binary "${OASIS_EMERALD_PARATIME}" \
+            --fixture.default.halt_epoch 100000 \
+            --fixture.default.staking_genesis "${GITHUB_WORKSPACE}/tests/staking_genesis.json" > "$FIXTURE_FILE"
+      - run: jq '.clients[0].runtime_config."1".allow_expensive_queries = true' "$FIXTURE_FILE" > "$FIXTURE_FILE.tmp"
+      - run: mv "$FIXTURE_FILE.tmp" "$FIXTURE_FILE"
+
+      # Run oasis-node.
+      - run: ${OASIS_NET_RUNNER} --fixture.file "$FIXTURE_FILE" --basedir "${TEST_BASE_DIR}" --basedir.no_temp_dir &
+
+      - run: sleep 10
+
+      - name: Unit tests with coverage
+        run: go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v2.1.0
