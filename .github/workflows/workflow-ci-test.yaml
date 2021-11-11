@@ -62,7 +62,6 @@ jobs:
         uses: actions/checkout@v2
         with:
             repository: starfishlabs/oasis-evm-paratime
-            path: ./oasis
             ref: main 
 
       # debug 
@@ -76,17 +75,17 @@ jobs:
       - name: checkout web3gateway 
         uses: actions/checkout@v2
         with: 
-            path: ./oasis
             ref: main
 
       # start evm-paratime
       - name: start evm paratime
         run:  |
+            cd ..
             pwd
             ls
-            cd oasis
-            ls
+            cd ..
             pwd
+            ls
             cargo build
       #      cd oasis/oasis-evm-paratime
       #      #################################
