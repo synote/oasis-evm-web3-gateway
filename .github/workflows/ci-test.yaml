@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - stable/*
+      - matevz/bug/linter-fixes
   # Or when a pull request event occurs for a pull request against one of the
   # matched branches.
   pull_request:
@@ -65,8 +66,9 @@ jobs:
             --fixture.default.runtime.binary "${OASIS_EMERALD_PARATIME}" \
             --fixture.default.halt_epoch 100000 \
             --fixture.default.staking_genesis "${GITHUB_WORKSPACE}/tests/staking_genesis.json" > "$FIXTURE_FILE"
-      - run: jq '.clients[0].runtime_config."1".allow_expensive_queries = true' "$FIXTURE_FILE" > "$FIXTURE_FILE.tmp"
-      - run: mv "$FIXTURE_FILE.tmp" "$FIXTURE_FILE"
+      - run: jq '.clients[0].runtime_config."1".allow_expensive_queries = true' "$FIXTURE_FILE" > "$FIXTURE_FILE.1"
+      - run: jq '.runtimes[1].version = 0x000100000000' "$FIXTURE_FILE.1" > "$FIXTURE_FILE.2"
+      - run: mv "$FIXTURE_FILE.2" "$FIXTURE_FILE"
 
       # Run oasis-node.
       - run: ${OASIS_NET_RUNNER} --fixture.file "$FIXTURE_FILE" --basedir "${TEST_BASE_DIR}" --basedir.no_temp_dir &
