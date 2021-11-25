@@ -5,10 +5,11 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"github.com/starfishlabs/oasis-evm-web3-gateway/filters"
+
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/oasisprotocol/oasis-core/go/common"
 	"github.com/oasisprotocol/oasis-core/go/common/crypto/hash"
 	"github.com/oasisprotocol/oasis-core/go/common/logging"
@@ -36,7 +37,7 @@ type Result struct {
 type Results map[uint64][]Result
 
 // BackendFactory is the indexer backend factory interface.
-type BackendFactory func(ctx context.Context, runtimeID common.Namespace, storage storage.Storage) (Backend, error)
+type BackendFactory func(ctx context.Context, runtimeID common.Namespace, storage storage.Storage, sb filters.SubscribeBackend) (Backend, error)
 
 // QueryableBackend is the read-only indexer backend interface.
 type QueryableBackend interface {
@@ -93,16 +94,17 @@ type Backend interface {
 	Close()
 }
 
-type psqlBackend struct {
+type indexBackend struct {
 	ctx context.Context
 
 	runtimeID common.Namespace
 	logger    *logging.Logger
 	storage   storage.Storage
+	subscribe filters.SubscribeBackend
 }
 
 // Index indexes oasis block.
-func (p *psqlBackend) Index(oasisBlock *block.Block, txResults []*client.TransactionWithResults) error {
+func (ib *indexBackend) Index(oasisBlock *block.Block, txResults []*client.TransactionWithResults) error {
 	round := oasisBlock.Header.Round
 	blockHash := ethcommon.HexToHash(oasisBlock.Header.EncodedHash().Hex())
 
@@ -111,54 +113,54 @@ func (p *psqlBackend) Index(oasisBlock *block.Block, txResults []*client.Transac
 		Round: oasisBlock.Header.Round,
 		Hash:  blockHash.String(),
 	}
-	if err := p.storage.Upsert(blockRef); err != nil {
+	if err := ib.storage.Upsert(blockRef); err != nil {
 		return err
 	}
 
 	// oasis block -> eth block, store eth block
-	err := p.StoreBlockData(oasisBlock, txResults)
+	err := ib.StoreBlockData(oasisBlock, txResults)
 	if err != nil {
-		p.logger.Error("generateEthBlock failed", "err", err)
+		ib.logger.Error("generateEthBlock failed", "err", err)
 		return err
 	}
 
-	p.logger.Info("indexed block", "round", round)
+	ib.logger.Info("indexed block", "round", round)
 
 	return nil
 }
 
 // UpdateLastIndexedRound updates the last indexed round.
-func (p *psqlBackend) UpdateLastIndexedRound(round uint64) error {
-	return p.storeIndexedRound(round)
+func (ib *indexBackend) UpdateLastIndexedRound(round uint64) error {
+	return ib.storeIndexedRound(round)
 }
 
 // Prune prunes data in db.
-func (p *psqlBackend) Prune(round uint64) error {
-	if err := p.storeLastRetainedRound(round); err != nil {
+func (ib *indexBackend) Prune(round uint64) error {
+	if err := ib.storeLastRetainedRound(round); err != nil {
 		return err
 	}
 
-	if err := p.storage.Delete(new(model.BlockRef), round); err != nil {
+	if err := ib.storage.Delete(new(model.BlockRef), round); err != nil {
 		return err
 	}
 
-	if err := p.storage.Delete(new(model.Block), round); err != nil {
+	if err := ib.storage.Delete(new(model.Block), round); err != nil {
 		return err
 	}
 
-	if err := p.storage.Delete(new(model.Log), round); err != nil {
+	if err := ib.storage.Delete(new(model.Log), round); err != nil {
 		return err
 	}
 
-	if err := p.storage.Delete(new(model.Transaction), round); err != nil {
+	if err := ib.storage.Delete(new(model.Transaction), round); err != nil {
 		return err
 	}
 
-	if err := p.storage.Delete(new(model.TransactionRef), round); err != nil {
+	if err := ib.storage.Delete(new(model.TransactionRef), round); err != nil {
 		return err
 	}
 
-	if err := p.storage.Delete(new(model.Receipt), round); err != nil {
+	if err := ib.storage.Delete(new(model.Receipt), round); err != nil {
 		return err
 	}
 
@@ -166,10 +168,10 @@ func (p *psqlBackend) Prune(round uint64) error {
 }
 
 // blockNumberFromRound converts a round to a blocknumber.
-func (p *psqlBackend) blockNumberFromRound(round uint64) (number uint64, err error) {
+func (ib *indexBackend) blockNumberFromRound(round uint64) (number uint64, err error) {
 	switch round {
 	case client.RoundLatest:
-		number, err = p.BlockNumber()
+		number, err = ib.BlockNumber()
 	default:
 		number = round
 	}
@@ -177,10 +179,10 @@ func (p *psqlBackend) blockNumberFromRound(round uint64) (number uint64, err err
 }
 
 // QueryBlockRound returns block number for the provided hash.
-func (p *psqlBackend) QueryBlockRound(blockHash ethcommon.Hash) (uint64, error) {
-	round, err := p.storage.GetBlockRound(blockHash.String())
+func (ib *indexBackend) QueryBlockRound(blockHash ethcommon.Hash) (uint64, error) {
+	round, err := ib.storage.GetBlockRound(blockHash.String())
 	if err != nil {
-		p.logger.Error("can't find matched block")
+		ib.logger.Error("Can't find matched block")
 		return 0, err
 	}
 
@@ -188,36 +190,36 @@ func (p *psqlBackend) QueryBlockRound(blockHash ethcommon.Hash) (uint64, error) 
 }
 
 // QueryBlockHash returns the block hash for the provided round.
-func (p *psqlBackend) QueryBlockHash(round uint64) (ethcommon.Hash, error) {
+func (ib *indexBackend) QueryBlockHash(round uint64) (ethcommon.Hash, error) {
 	var blockHash string
 	var err error
 	switch round {
 	case client.RoundLatest:
-		blockHash, err = p.storage.GetLatestBlockHash()
+		blockHash, err = ib.storage.GetLatestBlockHash()
 	default:
-		blockHash, err = p.storage.GetBlockHash(round)
+		blockHash, err = ib.storage.GetBlockHash(round)
 	}
 
 	if err != nil {
-		p.logger.Error("failed to query block hash", "err", err)
+		ib.logger.Error("failed to query block hash", "err", err)
 		return ethcommon.Hash{}, err
 	}
 	return ethcommon.HexToHash(blockHash), nil
 }
 
 // storeIndexedRound stores indexed round.
-func (p *psqlBackend) storeIndexedRound(round uint64) error {
+func (ib *indexBackend) storeIndexedRound(round uint64) error {
 	r := &model.IndexedRoundWithTip{
 		Tip:   model.Continues,
 		Round: round,
 	}
 
-	return p.storage.Upsert(r)
+	return ib.storage.Upsert(r)
 }
 
 // QueryLastIndexedRound returns the last indexed round.
-func (p *psqlBackend) QueryLastIndexedRound() (uint64, error) {
-	indexedRound, err := p.storage.GetLastIndexedRound()
+func (ib *indexBackend) QueryLastIndexedRound() (uint64, error) {
+	indexedRound, err := ib.storage.GetLastIndexedRound()
 	if err != nil {
 		return 0, err
 	}
@@ -226,18 +228,18 @@ func (p *psqlBackend) QueryLastIndexedRound() (uint64, error) {
 }
 
 // storeLastRetainedRound stores the last retained round.
-func (p *psqlBackend) storeLastRetainedRound(round uint64) error {
+func (ib *indexBackend) storeLastRetainedRound(round uint64) error {
 	r := &model.IndexedRoundWithTip{
 		Tip:   model.LastRetained,
 		Round: round,
 	}
 
-	return p.storage.Upsert(r)
+	return ib.storage.Upsert(r)
 }
 
 // QueryLastRetainedRound returns the last retained round.
-func (p *psqlBackend) QueryLastRetainedRound() (uint64, error) {
-	lastRetainedRound, err := p.storage.GetLastRetainedRound()
+func (ib *indexBackend) QueryLastRetainedRound() (uint64, error) {
+	lastRetainedRound, err := ib.storage.GetLastRetainedRound()
 	if err != nil {
 		return 0, ErrGetLastRetainedRound
 	}
@@ -245,8 +247,8 @@ func (p *psqlBackend) QueryLastRetainedRound() (uint64, error) {
 }
 
 // QueryTransaction returns transaction by transaction hash.
-func (p *psqlBackend) QueryTransaction(txHash ethcommon.Hash) (*model.Transaction, error) {
-	tx, err := p.storage.GetTransaction(txHash.String())
+func (ib *indexBackend) QueryTransaction(txHash ethcommon.Hash) (*model.Transaction, error) {
+	tx, err := ib.storage.GetTransaction(txHash.String())
 	if err != nil {
 		return nil, err
 	}
@@ -254,17 +256,17 @@ func (p *psqlBackend) QueryTransaction(txHash ethcommon.Hash) (*model.Transactio
 }
 
 // QueryTransactionRef returns TransactionRef by transaction hash.
-func (p *psqlBackend) QueryTransactionRef(hash string) (*model.TransactionRef, error) {
-	return p.storage.GetTransactionRef(hash)
+func (ib *indexBackend) QueryTransactionRef(hash string) (*model.TransactionRef, error) {
+	return ib.storage.GetTransactionRef(hash)
 }
 
 // GetBlockByRound returns a block for the provided round.
-func (p *psqlBackend) GetBlockByRound(round uint64) (*model.Block, error) {
-	blockNumber, err := p.blockNumberFromRound(round)
+func (ib *indexBackend) GetBlockByRound(round uint64) (*model.Block, error) {
+	blockNumber, err := ib.blockNumberFromRound(round)
 	if err != nil {
 		return nil, err
 	}
-	blk, err := p.storage.GetBlockByNumber(blockNumber)
+	blk, err := ib.storage.GetBlockByNumber(blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -273,8 +275,8 @@ func (p *psqlBackend) GetBlockByRound(round uint64) (*model.Block, error) {
 }
 
 // GetBlockByHash returns a block by bock hash.
-func (p *psqlBackend) GetBlockByHash(blockHash ethcommon.Hash) (*model.Block, error) {
-	blk, err := p.storage.GetBlockByHash(blockHash.String())
+func (ib *indexBackend) GetBlockByHash(blockHash ethcommon.Hash) (*model.Block, error) {
+	blk, err := ib.storage.GetBlockByHash(blockHash.String())
 	if err != nil {
 		return nil, err
 	}
@@ -283,27 +285,27 @@ func (p *psqlBackend) GetBlockByHash(blockHash ethcommon.Hash) (*model.Block, er
 }
 
 // GetBlockTransactionCountByRound returns the count of block transactions for the provided round.
-func (p *psqlBackend) GetBlockTransactionCountByRound(round uint64) (int, error) {
-	blockNumber, err := p.blockNumberFromRound(round)
+func (ib *indexBackend) GetBlockTransactionCountByRound(round uint64) (int, error) {
+	blockNumber, err := ib.blockNumberFromRound(round)
 	if err != nil {
 		return 0, err
 	}
-	return p.storage.GetBlockTransactionCountByNumber(blockNumber)
+	return ib.storage.GetBlockTransactionCountByNumber(blockNumber)
 }
 
 // GetBlockTransactionCountByHash returns the count of block transactions by block hash.
-func (p *psqlBackend) GetBlockTransactionCountByHash(blockHash ethcommon.Hash) (int, error) {
-	return p.storage.GetBlockTransactionCountByHash(blockHash.String())
+func (ib *indexBackend) GetBlockTransactionCountByHash(blockHash ethcommon.Hash) (int, error) {
+	return ib.storage.GetBlockTransactionCountByHash(blockHash.String())
 }
 
 // GetTransactionByBlockHashAndIndex returns transaction by the block hash and transaction index.
-func (p *psqlBackend) GetTransactionByBlockHashAndIndex(blockHash ethcommon.Hash, txIndex int) (*model.Transaction, error) {
-	return p.storage.GetBlockTransaction(blockHash.String(), txIndex)
+func (ib *indexBackend) GetTransactionByBlockHashAndIndex(blockHash ethcommon.Hash, txIndex int) (*model.Transaction, error) {
+	return ib.storage.GetBlockTransaction(blockHash.String(), txIndex)
 }
 
 // GetTransactionReceipt returns the receipt for the given tx.
-func (p *psqlBackend) GetTransactionReceipt(txHash ethcommon.Hash) (map[string]interface{}, error) {
-	dbReceipt, err := p.storage.GetTransactionReceipt(txHash.String())
+func (ib *indexBackend) GetTransactionReceipt(txHash ethcommon.Hash) (map[string]interface{}, error) {
+	dbReceipt, err := ib.storage.GetTransactionReceipt(txHash.String())
 	if err != nil {
 		return nil, err
 	}
@@ -360,34 +362,36 @@ func (p *psqlBackend) GetTransactionReceipt(txHash ethcommon.Hash) (map[string]i
 }
 
 // BlockNumber returns the latest block.
-func (p *psqlBackend) BlockNumber() (uint64, error) {
-	return p.storage.GetLatestBlockNumber()
+func (ib *indexBackend) BlockNumber() (uint64, error) {
+	return ib.storage.GetLatestBlockNumber()
 }
 
 // GetLogs returns logs from db.
-func (p *psqlBackend) GetLogs(startRound, endRound uint64) ([]*model.Log, error) {
-	return p.storage.GetLogs(startRound, endRound)
+func (ib *indexBackend) GetLogs(startRound, endRound uint64) ([]*model.Log, error) {
+	return ib.storage.GetLogs(startRound, endRound)
 }
 
 // Close closes postgresql backend.
-func (p *psqlBackend) Close() {
-	p.logger.Info("Psql backend closed!")
+func (ib *indexBackend) Close() {
+	ib.logger.Info("Indexer backend closed!")
 }
 
 // newPsqlBackend creates a Backend.
-func newPsqlBackend(ctx context.Context, runtimeID common.Namespace, storage storage.Storage) (Backend, error) {
-	b := &psqlBackend{
+func newIndexBackend(ctx context.Context, runtimeID common.Namespace, storage storage.Storage, sb filters.SubscribeBackend) (Backend, error) {
+	b := &indexBackend{
 		ctx:       ctx,
 		runtimeID: runtimeID,
 		logger:    logging.GetLogger("indexer"),
 		storage:   storage,
+		subscribe: sb,
 	}
-	b.logger.Info("New psql backend")
+
+	b.logger.Info("New indexer backend")
 
 	return b, nil
 }
 
-// NewPsqlBackend returns a PsqlBackend.
-func NewPsqlBackend() BackendFactory {
-	return newPsqlBackend
+// NewIndexBackend returns a PsqlBackend.
+func NewIndexBackend() BackendFactory {
+	return newIndexBackend
 }

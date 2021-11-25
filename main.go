@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/starfishlabs/oasis-evm-web3-gateway/conf"
+	"github.com/starfishlabs/oasis-evm-web3-gateway/filters"
 	"github.com/starfishlabs/oasis-evm-web3-gateway/indexer"
 	"github.com/starfishlabs/oasis-evm-web3-gateway/log"
 	"github.com/starfishlabs/oasis-evm-web3-gateway/rpc"
@@ -81,29 +82,32 @@ func runRoot() error {
 	// Create the runtime client with account module query helpers.
 	rc := client.New(conn, runtimeID)
 
-	// Initialize db
+	// Initialize db.
 	db, err := psql.InitDB(cfg.Database)
 	if err != nil {
 		logger.Error("failed to initialize db", "err", err)
 		return err
 	}
 
-	// Create Indexer
-	f := indexer.NewPsqlBackend()
-	indx, backend, err := indexer.New(f, rc, runtimeID, db, cfg.EnablePruning, cfg.PruningStep)
+	// Create Indexer.
+	f := indexer.NewIndexBackend()
+	indx, backend, subBackend, err := indexer.New(f, rc, runtimeID, db, cfg.EnablePruning, cfg.PruningStep)
 	if err != nil {
 		logger.Error("failed to create indexer", err)
 		return err
 	}
 	indx.Start()
 
-	// Create web3 gateway instance
+	// Create event system.
+	es := filters.NewEventSystem(subBackend)
+
+	// Create web3 gateway instance.
 	w3, err := server.New(cfg.Gateway)
 	if err != nil {
 		logger.Error("failed to create web3", err)
 		return err
 	}
-	w3.RegisterAPIs(rpc.GetRPCAPIs(context.Background(), rc, backend, cfg.Gateway))
+	w3.RegisterAPIs(rpc.GetRPCAPIs(context.Background(), rc, backend, cfg.Gateway, es))
 
 	svr := server.Server{
 		Config: cfg,
